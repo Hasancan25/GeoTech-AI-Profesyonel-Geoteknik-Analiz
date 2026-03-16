@@ -162,3 +162,11 @@ if uploaded_file:
     # Analiz sonuçlarını aldıktan sonra:
     fig_plotly = draw_plots(df_final)
     st.plotly_chart(fig_plotly, use_container_width=True)
+
+
+
+# Eğer CSV yüklüyorsa:
+df = pd.read_csv(uploaded_file, decimal=",")
+
+# Eğer Excel yüklüyorsa (Genelde Excel'i Pandas otomatik çözer ama garantiye alalım):
+df = pd.read_excel(uploaded_file)
