@@ -104,3 +104,11 @@ if uploaded_file:
         st.error(f"⚠️ Dosya okunurken bir sorun oluştu: {e}")
 else:
     st.info("👈 Verilerinizi yüklediğinizde sistem derinliğe otomatik olarak uyum sağlayacaktır.")
+
+
+# Yan menüye aralık seçici ekle
+min_d, max_d = int(df_in['DEPTH'].min()), int(df_in['DEPTH'].max())
+selected_range = st.sidebar.slider("Analiz Aralığı Seçin [m]", min_d, max_d, (min_d, max_d))
+
+# Veriyi bu aralığa göre filtrele
+df_filtered = df_in[(df_in['DEPTH'] >= selected_range[0]) & (df_in['DEPTH'] <= selected_range[1])]
