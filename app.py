@@ -164,5 +164,11 @@ if uploaded_file:
     st.plotly_chart(fig_plotly, use_container_width=True)
 
 
+# Sütun isimlerindeki boşlukları sil ve hepsini BÜYÜK harf yap
+df.columns = df.columns.str.strip().str.upper()
+
+# Eğer kullanıcı "DERINLIK" yazdıysa onu "DEPTH"e çevir (Opsiyonel ama hayat kurtarır)
+mapping = {'DERINLIK': 'DEPTH', 'DERİNLİK': 'DEPTH', 'SPT': 'SPT_N', 'N': 'SPT_N'}
+df = df.rename(columns=mapping)
 
 
