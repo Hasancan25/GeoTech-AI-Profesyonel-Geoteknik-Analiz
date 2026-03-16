@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# --- 1. MÜHENDİSLİK MOTORU ---
+# --- 1. ANALİZ MOTORU ---
 
 def get_bearing_capacity_factors(phi_deg):
     phi_rad = np.radians(phi_deg)
@@ -14,19 +14,19 @@ def get_bearing_capacity_factors(phi_deg):
     Ny = 2 * (Nq + 1) * np.tan(phi_rad)
     return round(Nc, 2), round(Nq, 2), round(Ny, 2)
 
-def process_geotech_data(df, B, L, Df, dw, Mw, a_max, max_depth_limit):
-    # Veri Temizleme ve Filtreleme
+def process_geotech_data(df, B, L, Df, dw, Mw, a_max):
+    # Veri Temizleme
     df.columns = df.columns.str.strip().str.upper()
     for col in ['DEPTH', 'SPT_N', 'UNIT_WEIGHT']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', '.'), errors='coerce')
     
-    # Kullanıcının seçtiği derinliğe kadar olan kısmı al
-    df = df[df['DEPTH'] <= max_depth_limit].dropna(subset=['DEPTH', 'SPT_N']).reset_index(drop=True)
+    # Tüm veriyi al (filtreleme yok, sistem ne gelirse ona uyum sağlar)
+    df = df.dropna(subset=['DEPTH', 'SPT_N']).reset_index(drop=True)
 
-    # SPT & Gerilme Düzeltmeleri
+    # Mühendislik Hesapları
     gamma_w = 9.81
-    df['Cr'] = df['DEPTH'].apply(lambda d: 0.75 if d<3 else (0.85 if d<6 else 1.0))
+    df['Cr'] = df['DEPTH'].apply(lambda d: 0.75 if d<3 else (0.85 if d<6 else (0.95 if d<10 else 1.0)))
     df['N60'] = df['SPT_N'] * df['Cr']
     df['Sigma_V'] = df['DEPTH'] * df['UNIT_WEIGHT']
     df['u'] = df.apply(lambda r: (r['DEPTH'] - dw) * gamma_w if r['DEPTH'] > dw else 0, axis=1)
@@ -52,9 +52,13 @@ def process_geotech_data(df, B, L, Df, dw, Mw, a_max, max_depth_limit):
     df['q_Emniyetli_kPa'] = q_all_list
     return df
 
-# --- 2. GÖRSELLEŞTİRME ---
+# --- 2. GÖRSELLEŞTİRME (OTOMATİK ÖLÇEKLENEN) ---
 
-def draw_plots(df, selected_depth):
+def draw_plots(df):
+    # Verideki maksimum derinliği bulup grafik sınırını ona göre belirliyoruz
+    max_d = df['DEPTH'].max()
+    chart_limit = max_d + 2  # Alt tarafta biraz boşluk bırakmak için +2m
+
     fig = make_subplots(rows=1, cols=3, shared_yaxes=True, 
                         subplot_titles=("N1(60) Profili", "Sıvılaşma FS", "Emniyetli Taşıma (kPa)"))
 
@@ -64,9 +68,9 @@ def draw_plots(df, selected_depth):
     
     fig.add_vline(x=1.0, line_dash="dash", line_color="black", row=1, col=2)
     
-    # Y eksenini kullanıcının seçtiği derinliğe göre ayarla
-    fig.update_yaxes(range=[selected_depth, 0], title_text="Derinlik (m)", autorange=False)
-    fig.update_layout(height=800, template="plotly_dark", title_text=f"Analiz Derinliği: {selected_depth} m")
+    # Y ekseni otomatik olarak max_d değerine uyum sağlar
+    fig.update_yaxes(range=[chart_limit, 0], title_text="Derinlik (m)", autorange=False)
+    fig.update_layout(height=800, template="plotly_dark", title_text=f"Otomatik Saha Profili (Maks: {max_d}m)")
     return fig
 
 # --- 3. ARAYÜZ ---
@@ -75,32 +79,28 @@ st.set_page_config(page_title="GeoTech-AI Pro", layout="wide")
 st.title("🏗️ GeoTech-AI: Profesyonel Geoteknik Analiz")
 
 with st.sidebar:
-    st.header("🛠️ Analiz Parametreleri")
-    max_depth = st.slider("Analiz Yapılacak Maks. Derinlik [m]", 5, 200, 50)
-    st.divider()
+    st.header("🛠️ Tasarım Girişleri")
     B = st.number_input("Temel Genişliği (B) [m]", 1.0)
     L = st.number_input("Temel Boyu (L) [m]", 1.0)
     dw = st.number_input("Su Seviyesi (dw) [m]", 3.0)
-    Mw = st.sidebar.number_input("Magnitüd (Mw)", 7.5)
-    amax = st.sidebar.number_input("İvme (amax) [g]", 0.4)
+    Mw = st.number_input("Magnitüd (Mw)", 7.5)
+    amax = st.number_input("İvme (amax) [g]", 0.4)
     st.divider()
-    uploaded_file = st.file_uploader("Saha Verisi (Excel/CSV)", type=['xlsx', 'csv'])
+    uploaded_file = st.file_uploader("Veri Dosyasını Yükleyin", type=['xlsx', 'csv'])
 
 if uploaded_file:
     try:
         df_in = pd.read_csv(uploaded_file, decimal=",") if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+        df_res = process_geotech_data(df_in, B, L, 1.5, dw, Mw, amax)
         
-        # Analizi yaparken seçilen derinlik sınırını kullanıyoruz
-        df_res = process_geotech_data(df_in, B, L, 1.5, dw, Mw, amax, max_depth)
-        
-        t1, t2 = st.tabs(["📝 Sonuç Tablosu", "📊 Analiz Grafikleri"])
+        t1, t2 = st.tabs(["📝 Veri Analizi", "📊 Görsel Profil"])
         with t1:
-            st.success(f"Seçilen {max_depth} metre derinlik için analiz tamamlandı.")
+            st.success(f"Sistem {df_res['DEPTH'].max()} metre derinliğe otomatik olarak uyum sağladı.")
             st.dataframe(df_res, use_container_width=True)
         with t2:
-            st.plotly_chart(draw_plots(df_res, max_depth), use_container_width=True)
+            st.plotly_chart(draw_plots(df_res), use_container_width=True)
             
     except Exception as e:
-        st.error(f"Hata: {e}")
+        st.error(f"⚠️ Dosya okunurken bir sorun oluştu: {e}")
 else:
-    st.info("👈 Analiz derinliğini belirleyin ve verilerinizi yükleyin.")
+    st.info("👈 Verilerinizi yüklediğinizde sistem derinliğe otomatik olarak uyum sağlayacaktır.")
