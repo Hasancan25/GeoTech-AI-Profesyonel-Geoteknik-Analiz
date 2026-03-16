@@ -11,15 +11,48 @@ def process_geotech_data(df, B, L, Df, dw, Mw, a_max, gamma_sat, net_pressure):
     df['USCS'] = df['USCS'].astype(str).str.strip().str.upper()
     df['SPT_N'] = pd.to_numeric(df['SPT_N'], errors='coerce').fillna(50)
     
-    # SPT Düzeltmeleri (N60 ve CN)
-    # Basitleştirilmiş katsayılar: Ce=1.0, Cb=1.0, Cs=1.0. Cr derinliğe bağlı.
-    def get_cr(depth):
-        if depth < 3: return 0.75
-        elif depth < 6: return 0.85
-        elif depth < 10: return 0.95
-        else: return 1.0
+# --- 1. Tij Boyu Düzeltmesi (Cr) Fonksiyonu ---
+def get_cr(depth):
+    if depth < 3: return 0,75
+    elif 3 <= depth < 4: return 0,80
+    elif 4 <= depth < 6: return 0,85
+    elif 6 <= depth < 10: return 0,95
+    else: return 1,0  # 10 metreden 200 metreye kadar tij boyu çarpanı 1 kabul edilir.
 
-    df['N60'] = df.apply(lambda r: r['SPT_N'] * get_cr(r['DEPTH']), axis=1)
+# --- 2. Dosya Yükleme Paneli ---
+uploaded_file = st.sidebar.file_uploader("Saha Verisi Yükle (Max 200m)", type=['xlsx', 'csv'])
+
+if uploaded_file:
+    # DOSYA OKUMA: df burada oluşuyor
+    if uploaded_file.name.endswith('.csv'):
+        # Virgüllü sayıları (1,50 gibi) doğru okumak için decimal="," ekledik
+        df_raw = pd.read_csv(uploaded_file, decimal=",")
+    else:
+        df_raw = pd.read_excel(uploaded_file)
+
+    # KRİTİK TEMİZLİK: df oluştuktan hemen sonra sütunları temizle
+    df_raw.columns = df_raw.columns.str.strip().str.upper()
+
+    # Sayısal olması gereken kolonları virgül-nokta karmaşasından kurtar
+    for col in ['DEPTH', 'SPT_N', 'UNIT_WEIGHT']:
+        if col in df_raw.columns:
+            # Önce stringe çevir, virgülü noktaya çevir, sonra sayı yap
+            df_raw[col] = pd.to_numeric(df_raw[col].astype(str).str.replace(',', '.'), errors='coerce')
+
+    try:
+        # Analiz motorunu çalıştır
+        df_final = process_geotech_data(df_raw, B, L, Df, dw, Mw, amax)
+        
+        st.success(f"Analiz Tamamlandı! 200 metre derinliğe kadar {len(df_final)} adet veri noktası işlendi.")
+        
+        # Grafik Çizdirme (Ölçeği 200m'ye göre ayarlar)
+        fig = show_interactive_plots(df_final)
+        # Grafik derinliğini verideki maksimum derinliğe göre otomatik ölçekle
+        fig.update_yaxes(range=[df_final['DEPTH'].max() + 5, 0]) 
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"⚠️ Bir sorun çıktı: {e}")
     
     # Efektif Gerilme ve CN
     gamma_w = 9.81
