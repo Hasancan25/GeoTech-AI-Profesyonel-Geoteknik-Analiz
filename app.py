@@ -88,33 +88,3 @@ if uploaded_file:
         st.pyplot(fig)
 else:
     st.info("Lütfen sol taraftan bir ölçüm dosyası yükleyin.")
-
-
-
-
-
-if uploaded_file:
-    # 1. Analiz Yapılır
-    df_final = process_geotech_data(...) 
-    
-    # 2. Tablolar ve Grafikler Gösterilir
-    st.dataframe(df_final)
-    st.pyplot(fig)
-
-    # --- PDF BUTONU BURADA OLMALI ---
-    st.divider()
-    st.subheader("📄 Analiz Raporunu Al")
-    
-    # PDF oluşturma fonksiyonunu çağırıyoruz
-    pdf_output = generate_pdf(df_final, params)
-    
-    st.download_button(
-        label="📥 Raporu PDF Olarak İndir",
-        data=bytes(pdf_output),
-        file_name="Geoteknik_Rapor.pdf",
-        mime="application/pdf"
-    )
-
-else:
-    # Dosya yüklenmediyse burası görünür
-    st.info("Lütfen sol taraftan bir ölçüm dosyası yükleyin.")
