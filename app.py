@@ -128,3 +128,37 @@ if uploaded_file:
     # ... analiz kodların ...
     fig = create_interactive_plots(df_final)
     st.plotly_chart(fig, use_container_width=True)
+
+
+
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+# ... (Analiz fonksiyonlarının bittiği yerde, grafik gösterme kısmına gel)
+
+def draw_plots(df):
+    # Yan yana iki grafik oluşturuyoruz
+    fig = make_subplots(rows=1, cols=2, shared_yaxes=True, 
+                        subplot_titles=("N1(60) Profili", "Sıvılaşma Risk Analizi (FS)"))
+
+    # 1. Grafik: N1(60) vs Derinlik
+    fig.add_trace(go.Scatter(x=df['N1_60'], y=df['DEPTH'], mode='lines+markers', name='N1(60)'), row=1, col=1)
+
+    # 2. Grafik: Sıvılaşma Güvenlik Sayısı (FS) vs Derinlik
+    fig.add_trace(go.Scatter(x=df['FS_Liq'], y=df['DEPTH'], mode='lines+markers', name='FS Liquefaction', line=dict(color='red')), row=1, col=2)
+    
+    # FS=1.0 kritik sınır çizgisi
+    fig.add_vline(x=1.0, line_dash="dash", line_color="black", row=1, col=2)
+
+    # Derinlik eksenini ters çevir (0 üstte olsun)
+    fig.update_yaxes(autorange="reversed")
+    fig.update_layout(height=600, showlegend=False, template="plotly_white")
+    
+    return fig
+
+# Arayüzde gösterim
+if uploaded_file:
+    # Analiz sonuçlarını aldıktan sonra:
+    fig_plotly = draw_plots(df_final)
+    st.plotly_chart(fig_plotly, use_container_width=True)
