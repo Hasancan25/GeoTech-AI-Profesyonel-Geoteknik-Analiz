@@ -88,3 +88,43 @@ if uploaded_file:
         st.pyplot(fig)
 else:
     st.info("Lütfen sol taraftan bir ölçüm dosyası yükleyin.")
+
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+# ... (Analiz fonksiyonların bittikten sonra, grafik kısmına şu kodu yaz)
+
+def create_interactive_plots(df):
+    # İki sütunlu subplot oluşturuyoruz
+    fig = make_subplots(rows=1, cols=2, shared_yaxes=True, 
+                        subplot_titles=("N1(60) Profili", "Sıvılaşma Güvenlik Sayısı (FS)"))
+
+    # 1. Grafik: N1(60)
+    fig.add_trace(
+        go.Scatter(x=df['N1_60'], y=df['DEPTH'], name="N1(60)",
+                   mode='lines+markers', line=dict(color='blue')),
+        row=1, col=1
+    )
+
+    # 2. Grafik: FS_Liq
+    fig.add_trace(
+        go.Scatter(x=df['FS_Liq'], y=df['DEPTH'], name="FS Liquefaction",
+                   mode='lines+markers', line=dict(color='red')),
+        row=1, col=2
+    )
+
+    # Kritik sınır (FS=1.0) için dikey çizgi
+    fig.add_vline(x=1.0, line_dash="dash", line_color="black", row=1, col=2)
+
+    # Eksen ayarları
+    fig.update_yaxes(autorange="reversed", title_text="Derinlik (m)")
+    fig.update_layout(height=600, title_text="Saha Analiz Grafikleri", showlegend=False)
+    
+    return fig
+
+# Arayüzde göstermek için:
+if uploaded_file:
+    # ... analiz kodların ...
+    fig = create_interactive_plots(df_final)
+    st.plotly_chart(fig, use_container_width=True)
