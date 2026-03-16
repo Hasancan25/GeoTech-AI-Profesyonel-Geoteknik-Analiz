@@ -157,18 +157,37 @@ def draw_plots(df):
     
     return fig
 
-# Arayüzde gösterim
+
+
+
+
+# 1. Önce yükleme butonunu koyuyoruz
+uploaded_file = st.sidebar.file_uploader("Saha Verisi Yükle (Excel veya CSV)", type=['xlsx', 'csv'])
+
 if uploaded_file:
-    # Analiz sonuçlarını aldıktan sonra:
-    fig_plotly = draw_plots(df_final)
-    st.plotly_chart(fig_plotly, use_container_width=True)
+    # 2. Dosyayı okuyup 'df' değişkenini oluşturuyoruz
+    if uploaded_file.name.endswith('.csv'):
+        # Virgüllü sayıları (1,50 gibi) doğru okumak için decimal="," ekledik
+        df_raw = pd.read_csv(uploaded_file, decimal=",")
+    else:
+        df_raw = pd.read_excel(uploaded_file)
 
+    # 3. ŞİMDİ 'df_raw' oluştuğu için sütunları temizleyebiliriz
+    df_raw.columns = df_raw.columns.str.strip().str.upper()
 
-# Sütun isimlerindeki boşlukları sil ve hepsini BÜYÜK harf yap
-df.columns = df.columns.str.strip().str.upper()
+    # 4. Analiz fonksiyonunu çağırıyoruz (Sütun isimleri artık temiz ve büyük harf!)
+    try:
+        # Önceki kodundaki fonksiyon ismini ve parametreleri buraya yaz
+        df_final = process_geotech_data(df_raw, B, L, Df, dw, Mw, amax)
+        
+        st.success("Analiz başarıyla tamamlandı!")
+        st.dataframe(df_final) # Sonuç tablosu
+        
+        # Grafik fonksiyonunu buraya ekle
+        # fig = create_interactive_plots(df_final)
+        # st.plotly_chart(fig)
 
-# Eğer kullanıcı "DERINLIK" yazdıysa onu "DEPTH"e çevir (Opsiyonel ama hayat kurtarır)
-mapping = {'DERINLIK': 'DEPTH', 'DERİNLİK': 'DEPTH', 'SPT': 'SPT_N', 'N': 'SPT_N'}
-df = df.rename(columns=mapping)
+    except KeyError as e:
+        st.error(f"Hata: Dosyanızda '{e}' isimli bir sütun bulunamadı. Lütfen Excel başlıklarını kontrol edin.")
 
 
